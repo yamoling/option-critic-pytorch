@@ -1,0 +1,15 @@
+[project]
+name = "option-critic-pytorch"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "gymnasium[atari]>=1.2.0",
+    "jupyterlab>=4.4.7",
+    "laser-learning-environment>=2.6.1",
+    "matplotlib>=3.10.6",
+    "polars>=1.33.0",
+    "tensorboard>=2.20.0",
+    "torch>=2.8.0",
+]
