@@ -88,7 +88,7 @@ class CSVLogger:
     def log_training_data(self, data: dict[str, float], time_step: int):
         return self.data.log(data, time_step)
 
-    def log_episode(self, step_num: int, score: float, option_lengths: dict, ep_num: int, epsilon: float, exit_rate: float):
+    def log_episode(self, step_num: int, score: float, ep_num: int, epsilon: float, exit_rate: float):
         log_entry = {
             "step_num": step_num,
             "score": score,
@@ -96,14 +96,14 @@ class CSVLogger:
             "epsilon": epsilon,
             "exit_rate": exit_rate,
         }
-        for option, lens in option_lengths.items():
-            # Need better statistics for this one, point average is terrible in this case
-            if len(lens) > 0:
-                log_entry[f"option_{option}_avg_length"] = float(np.mean(lens))
-                log_entry[f"option_{option}_active"] = sum(lens) / ep_num
-            else:
-                log_entry[f"option_{option}_avg_length"] = 0.0
-                log_entry[f"option_{option}_active"] = 0.0
+        # for option, lens in option_lengths.items():
+        #     # Need better statistics for this one, point average is terrible in this case
+        #     if len(lens) > 0:
+        #         log_entry[f"option_{option}_avg_length"] = float(np.mean(lens))
+        #         log_entry[f"option_{option}_active"] = sum(lens) / ep_num
+        #     else:
+        #         log_entry[f"option_{option}_avg_length"] = 0.0
+        #         log_entry[f"option_{option}_active"] = 0.0
         self.log_train(log_entry, step_num)
 
     def log_data(self, step: int, actor_loss: Optional[float], critic_loss: Optional[float], entropy: float, epsilon: float):

@@ -26,10 +26,6 @@ class FrameStack(FrameStackObservation):
     def __init__(self, env, k):
         FrameStackObservation.__init__(self, env, k)
 
-    def _get_ob(self):
-        assert len(self.frames) == self.k
-        return LazyFrames(list(self.frames))
-
 
 def make_env(env_name):
     if env_name == "fourrooms":

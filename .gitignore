@@ -9,3 +9,4 @@ uv.lock
 logs
 .ipynb_checkpoints
 .venv
+__pycache__
