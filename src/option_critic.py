@@ -67,8 +67,9 @@ class OptionCriticFeatures(nn.Module):
     def get_terminations(self, state):
         return self.terminations(state).sigmoid()
 
-    def get_action(self, state, option):
+    def get_action(self, state, option, available_actions):
         logits = state.data @ self.options_W[option] + self.options_b[option]
+        logits[~available_actions] = float("-inf")
         action_dist = (logits / self.temperature).softmax(dim=-1)
         action_dist = Categorical(action_dist)
 

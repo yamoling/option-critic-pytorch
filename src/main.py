@@ -7,7 +7,6 @@ import torch
 
 from args import parser
 from experience_replay import ReplayBuffer
-from fourrooms import Fourrooms
 from logger import Logger
 from option_critic import OptionCriticFeatures
 from option_critic import actor_loss as actor_loss_fn
@@ -43,7 +42,7 @@ class FRL(RLEnvWrapper[Any]):
 
 
 def run(args):
-    env = Fourrooms()
+    env = FRL()
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     random.seed(args.seed)
@@ -51,8 +50,8 @@ def run(args):
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     option_critic = OptionCriticFeatures(
-        in_features=env.observation_space.shape[0],
-        num_actions=env.action_space.n,
+        in_features=env.observation_size + env.extras_size,
+        num_actions=env.n_actions,
         num_options=args.num_options,
         temperature=args.temp,
         eps_start=args.epsilon_start,
@@ -70,13 +69,14 @@ def run(args):
 
     steps = 0
     epsilon = 1.0
-    if args.switch_goal:
-        print(f"Current goal {env.goal}")
     while steps < args.max_steps_total:
         rewards = 0
         option_lengths = {opt: [] for opt in range(args.num_options)}
 
-        obs = env.reset()
+        obs, _ = env.reset()
+        obs = obs.agent(0, keep_dim=False)
+        available = obs.available_actions
+        obs = np.concatenate([obs.data, obs.extras], axis=-1)
         state = option_critic.get_state(to_tensor(obs))
         greedy_option = option_critic.greedy_option(state)
         current_option = 0
@@ -99,9 +99,13 @@ def run(args):
                 current_option = np.random.choice(args.num_options) if np.random.rand() < epsilon else greedy_option
                 curr_op_len = 0
 
-            action, logp, entropy = option_critic.get_action(state, current_option)
+            action, logp, entropy = option_critic.get_action(state, current_option, available[None, :])
 
-            next_obs, reward, done, _ = env.step(action)
+            step = env.step([action])
+            next_obs = step.obs.agent(0, keep_dim=False)
+            next_obs = np.concatenate([next_obs.data, next_obs.extras], axis=-1)
+            reward = step.reward.item()
+            done = step.done
             buffer.push(obs, current_option, reward, next_obs, done)
             rewards += reward
 
@@ -132,6 +136,7 @@ def run(args):
             ep_steps += 1
             curr_op_len += 1
             obs = next_obs
+            available = step.obs.available_actions[0]
 
             logger.log_data(steps, actor_loss, critic_loss, entropy.item(), epsilon)
 
