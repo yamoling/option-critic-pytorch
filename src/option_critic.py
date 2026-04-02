@@ -1,4 +1,5 @@
 from math import exp
+from typing import Literal
 
 import torch
 import torch.nn as nn
@@ -20,6 +21,7 @@ class OptionCriticFeatures(nn.Module):
         eps_test=0.05,
         device=torch.device("cpu"),
         testing=False,
+        method: Literal["params", "module list"] = "params",
     ):
 
         super(OptionCriticFeatures, self).__init__()
@@ -29,6 +31,7 @@ class OptionCriticFeatures(nn.Module):
         self.num_options = num_options
         self.device = device
         self.testing = testing
+        self.method = method
 
         self.temperature = temperature
         self.eps_min = eps_min
@@ -43,6 +46,7 @@ class OptionCriticFeatures(nn.Module):
         self.terminations = nn.Linear(64, num_options)  # Option-Termination
         self.options_W = nn.Parameter(torch.zeros(num_options, 64, num_actions))
         self.options_b = nn.Parameter(torch.zeros(num_options, num_actions))
+        self.policies = nn.ModuleList([nn.Linear(64, num_actions) for _ in range(num_options)])  # Intra-Option Policies
 
         self.to(device)
         self.train(not testing)
@@ -68,7 +72,10 @@ class OptionCriticFeatures(nn.Module):
         return self.terminations(state).sigmoid()
 
     def get_action(self, state, option, available_actions):
-        logits = state.data @ self.options_W[option] + self.options_b[option]
+        if self.method == "params":
+            logits = state.data @ self.options_W[option] + self.options_b[option]
+        else:
+            logits = self.policies[option](state)
         logits[~available_actions] = float("-inf")
         action_dist = (logits / self.temperature).softmax(dim=-1)
         action_dist = Categorical(action_dist)

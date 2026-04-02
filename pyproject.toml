@@ -1,0 +1,19 @@
+[project]
+name = "option-critic-masster-untouched"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "gymnasium>=1.2.3",
+    "laser-learning-environment>=2.6.5",
+    "matplotlib>=3.10.8",
+    "multi-agent-rlenv>=3.7.8",
+    "polars>=1.39.3",
+    "seaborn>=0.13.2",
+    "tensorboard>=2.20.0",
+    "torch>=2.10.0",
+]
+
+[tool.ruff]
+line-length = 140

@@ -2,6 +2,7 @@ import time
 import random
 from copy import deepcopy
 
+import polars as pl
 import numpy as np
 import torch
 
@@ -59,6 +60,7 @@ def run(args):
         eps_decay=args.epsilon_decay,
         eps_test=args.optimal_eps,
         device=device,
+        method=args.method,
     )
     # Create a prime network for more stable Q values
     option_critic_prime = deepcopy(option_critic)
@@ -69,8 +71,10 @@ def run(args):
 
     steps = 0
     epsilon = 1.0
+    ep_lengths = []
+    step_logs, ep_logs = [], []
     while steps < args.max_steps_total:
-        rewards = 0
+        cumulative_reward = 0.0
         option_lengths = {opt: [] for opt in range(args.num_options)}
 
         obs, _ = env.reset()
@@ -107,7 +111,7 @@ def run(args):
             reward = step.reward.item()
             done = step.done
             buffer.push(obs, current_option, reward, next_obs, done)
-            rewards += reward
+            cumulative_reward += reward
 
             actor_loss, critic_loss = None, None
             if len(buffer) > args.batch_size:
@@ -124,6 +128,15 @@ def run(args):
                 optim.zero_grad()
                 loss.backward()
                 optim.step()
+                step_logs.append(
+                    {
+                        "actor loss": actor_loss.item() if actor_loss else None,
+                        "critic loss": critic_loss.item() if critic_loss else None,
+                        "entropy": entropy.item(),
+                        "epsilon": epsilon,
+                        "time step": steps,
+                    }
+                )
 
                 if steps % args.freeze_interval == 0:
                     option_critic_prime.load_state_dict(option_critic.state_dict())
@@ -140,9 +153,29 @@ def run(args):
 
             logger.log_data(steps, actor_loss, critic_loss, entropy.item(), epsilon)
 
-        logger.log_episode(steps, rewards, option_lengths, ep_steps, epsilon)
+        ep_lengths.append(ep_steps)
+        mean_len = np.mean(ep_lengths[-50:])
+        ep_logs.append(
+            {
+                "score": cumulative_reward,
+                "length": ep_steps,
+                "mean length": mean_len,
+                **{f"option {i} length": np.mean(option_lengths[i]) if option_lengths[i] else 0 for i in range(args.num_options)},
+            }
+        )
+        logger.log_episode(steps, cumulative_reward, ep_steps, mean_len, epsilon)
+    return step_logs, ep_logs
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    run(args)
+    args.max_steps_total = 10_000
+    for method in ("params", "module list"):
+        args.method = method
+        for seed in range(10):
+            args.seed = seed
+            step_logs, ep_logs = run(args)
+            step_df = pl.DataFrame(step_logs).with_columns(method=pl.lit(method), seed=pl.lit(seed))
+            ep_df = pl.DataFrame(ep_logs).with_columns(method=pl.lit(method), seed=pl.lit(seed))
+            step_df.write_csv(f"results/step_logs_{method}_{seed}.csv")
+            ep_df.write_csv(f"results/ep_logs_{method}_{seed}.csv")
