@@ -118,13 +118,18 @@ class OptionCriticTrainer:
 
     def critic_loss(self):
         obs, extras, options, rewards, next_obs, next_extras, dones = self.buffer.sample(self.batch_size)
+        options = options.to(self.device)
         with torch.no_grad():
-            next_states_values = self.compute_next_state_value(next_obs, next_extras, options)
-        targets = rewards + (1 - dones) * self.gamma * next_states_values
+            next_states_values = self.compute_next_state_value(
+                next_obs.to(self.device),
+                next_extras.to(self.device),
+                options,
+            )
+        targets = rewards.to(self.device) + (1 - dones.to(self.device)) * self.gamma * next_states_values
 
         # The loss is the TD loss of Q and the update target, so we need to calculate Q
         # Shape (batch_size, n_agents, ...)
-        q_options = self.oc.compute_q_options(obs, extras)
+        q_options = self.oc.compute_q_options(obs.to(self.device), extras.to(self.device))
         q_options = q_options.gather(-1, options.unsqueeze(-1)).squeeze(-1)
         # q_options = q_options[batch_idx, :, options]
         q_options = q_options.sum(-1)

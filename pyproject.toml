@@ -11,5 +11,11 @@ dependencies = [
     "matplotlib>=3.10.6",
     "polars>=1.33.0",
     "tensorboard>=2.20.0",
-    "torch>=2.8.0",
+    "torch<2.8",
+    "tqdm>=4.67.3",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstrument>=5.1.2",
 ]
