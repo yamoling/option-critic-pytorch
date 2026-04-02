@@ -13,6 +13,33 @@ from option_critic import OptionCriticFeatures
 from option_critic import actor_loss as actor_loss_fn
 from option_critic import critic_loss as critic_loss_fn
 from utils import to_tensor
+import lle
+from typing import Any
+from marlenv import RLEnvWrapper, Builder
+
+
+class FRL(RLEnvWrapper[Any]):
+    def __init__(self):
+
+        env1 = lle.from_file("fourrooms.toml").obs_type("state").build()
+        env2 = lle.from_file("fourrooms2.toml").obs_type("state").build()
+        self.world1 = env1.world
+        self.world2 = env2.world
+        self.env1 = Builder(env1).time_limit(1000).agent_id().build()
+        self.env2 = Builder(env2).time_limit(1000).agent_id().build()
+        super().__init__(self.env1)
+
+    def switch_goal(self):
+        if self.wrapped is self.env1:
+            self.wrapped = self.env2
+            self.world = self.world2
+        else:
+            self.wrapped = self.env1
+            self.world = self.world1
+
+    @property
+    def current_pos(self):
+        return self.world.agents_positions[0]
 
 
 def run(args):
